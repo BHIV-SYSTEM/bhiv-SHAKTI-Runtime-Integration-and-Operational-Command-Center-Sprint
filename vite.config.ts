@@ -94,6 +94,12 @@ export default defineConfig({
           "Accept": "application/json",
         },
       },
+      "/api/mitra": {
+        target: process.env.VITE_MITRA_LIVE_URL || "https://mitra.blackholeinfiverse.com",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/mitra/, ""),
+      },
     },
   },
 });
