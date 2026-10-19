@@ -65,6 +65,13 @@ export default memo(function ObservabilityLayout() {
         rate: data.metrics?.event_rates?.[i]?.value != null ? +(data.metrics.event_rates[i].value).toFixed(1) : 0,
       }));
     }
+    if (Array.isArray((data as any)?.per_trace_telemetry) && (data as any).per_trace_telemetry.length > 0) {
+      return (data as any).per_trace_telemetry.map((pt: any) => ({
+        time: formatTime(pt.created_at || pt.telemetry?.timestamp),
+        response: pt.telemetry?.value ?? 0,
+        rate: 1,
+      }));
+    }
     const hasMeaningfulBucketTelemetry = Boolean(
       (queryPerf.data && (
         (queryPerf.data.p50_ms ?? 0) > 0 ||
@@ -97,6 +104,13 @@ export default memo(function ObservabilityLayout() {
         time: rt ? formatTime(rt.timestamp) : "",
         response: rt && rt.value != null ? +rt.value.toFixed(1) : 0,
         rate: tantraTelemetry.data?.metrics?.event_rates?.[i]?.value != null ? +(tantraTelemetry.data.metrics.event_rates[i].value).toFixed(1) : 0,
+      }));
+    }
+    if (Array.isArray(tantraTelemetry.data) && tantraTelemetry.data.length > 0) {
+      return tantraTelemetry.data.map((item: any) => ({
+        time: formatTime(item.timestamp),
+        response: item.payload?.statusCode ?? (item.status === "completed" ? 200 : 500),
+        rate: 1,
       }));
     }
     return [];

@@ -35,8 +35,18 @@ export async function fetchPranaPropagationLog(limit = 50): Promise<PranaPropaga
   if (Array.isArray(data)) {
     return { logs: data, total: data.length, count: data.length };
   }
+
+  const rawLogs = Array.isArray(data?.logs)
+    ? data.logs
+    : Array.isArray(data?.events)
+    ? data.events
+    : [];
+
   return {
     ...data,
-    logs: Array.isArray(data?.logs) ? data.logs : [],
+    logs: rawLogs,
+    total: data?.total ?? rawLogs.length,
+    count: data?.count ?? rawLogs.length,
   };
 }
+
