@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { QueryClient } from "@tanstack/react-query";
 import {
   buildBhivPopupLoginUrl,
   classifyAuthError,
@@ -19,6 +20,7 @@ import {
   isBlockedUnverifiedMutation,
   isKnownCapability,
 } from "@/utils/authorization";
+import { deriveAuthQueryScopeKey } from "@/utils/queryScope";
 import { logger } from "@/utils/logger";
 import {
   CANONICAL_APP_SLUG,
@@ -38,9 +40,11 @@ interface PendingProtectedAction {
 
 interface AuthProviderProps {
   children: ReactNode;
+  /** Optional React Query client cleared on logout and user/tenant transitions */
+  queryClient?: QueryClient;
 }
 
-export function AuthProvider({ children }: AuthProviderProps) {
+export function AuthProvider({ children, queryClient }: AuthProviderProps) {
   const [status, setStatus] = useState<AuthSessionStatus>("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isAccessDenied, setIsAccessDenied] = useState<boolean>(false);
@@ -50,15 +54,50 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const mountedRef = useRef<boolean>(true);
   const popupWindowRef = useRef<Window | null>(null);
   const pendingActionRef = useRef<PendingProtectedAction | null>(null);
+  const activeScopeRef = useRef<string>("session:loading");
+  const queryClientRef = useRef<QueryClient | undefined>(queryClient);
 
-  const applyResolvedSession = useCallback((resolved: ResolvedAuthSession) => {
-    if (!mountedRef.current) return;
-    setStatus(resolved.status);
-    setUser(resolved.user);
-    setIsAccessDenied(resolved.isAccessDenied);
-    setDeniedEmail(resolved.deniedEmail);
-    setError(resolved.error);
-  }, []);
+  useEffect(() => {
+    queryClientRef.current = queryClient;
+  }, [queryClient]);
+
+  const clearSessionQueryCache = useCallback(() => {
+    const qc = queryClientRef.current ?? queryClient;
+    if (!qc) return;
+    if (typeof qc.cancelQueries === "function") {
+      void qc.cancelQueries();
+    }
+    if (typeof qc.clear === "function") {
+      qc.clear();
+    }
+  }, [queryClient]);
+
+  const applyResolvedSession = useCallback(
+    (resolved: ResolvedAuthSession) => {
+      if (!mountedRef.current) return;
+
+      const nextScope = deriveAuthQueryScopeKey({
+        status: resolved.status,
+        user: resolved.user,
+        isAccessDenied: resolved.isAccessDenied,
+      });
+
+      if (
+        activeScopeRef.current !== "session:loading" &&
+        activeScopeRef.current !== nextScope
+      ) {
+        clearSessionQueryCache();
+      }
+      activeScopeRef.current = nextScope;
+
+      setStatus(resolved.status);
+      setUser(resolved.user);
+      setIsAccessDenied(resolved.isAccessDenied);
+      setDeniedEmail(resolved.deniedEmail);
+      setError(resolved.error);
+    },
+    [clearSessionQueryCache]
+  );
 
   const refreshSession = useCallback(async (): Promise<ResolvedAuthSession> => {
     const resolved = await fetchBhivSsoSession(CANONICAL_APP_SLUG);
@@ -91,13 +130,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, [refreshSession, status]);
 
-  const login = useCallback((): Window | null => {
+  const openAuthPopup = useCallback((preservePendingAction: boolean): Window | null => {
+    if (!preservePendingAction) {
+      pendingActionRef.current = null;
+    }
+
     const { authUiUrl } = resolveAuthEndpoints();
     const popupUrl = buildBhivPopupLoginUrl(authUiUrl, CANONICAL_APP_SLUG);
 
     if (!popupUrl) {
       logger.error(
-        "Cannot open BHIV sign-in popup: VITE_AUTH_SERVER_URL / VITE_AUTH_UI_URL is not configured"
+        "Cannot open BHIV sign-in popup: VITE_AUTH_UI_URL is not configured"
       );
       return null;
     }
@@ -114,6 +157,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     popupWindowRef.current = opened;
     return opened;
   }, []);
+
+  const login = useCallback((): Window | null => {
+    return openAuthPopup(false);
+  }, [openAuthPopup]);
 
   // Listen strictly for verified postMessage `{ type: "blackhole-auth-success" }` from exact approved auth origin
   useEffect(() => {
@@ -200,14 +247,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = useCallback(async (): Promise<void> => {
     pendingActionRef.current = null;
+    popupWindowRef.current = null;
+    clearSessionQueryCache();
     try {
       await logoutBhivSession();
     } catch (err) {
       logger.error("Central BHIV logout request failed", err);
     } finally {
+      clearSessionQueryCache();
       await refreshSession();
     }
-  }, [refreshSession]);
+  }, [clearSessionQueryCache, refreshSession]);
 
   const handleAuthError = useCallback(
     async (err: unknown): Promise<void> => {
@@ -261,7 +311,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           callback: action,
           requiredPermission,
         };
-        const popup = login();
+        const popup = openAuthPopup(true);
         if (!popup && !resolveAuthEndpoints().authUiUrl) {
           pendingActionRef.current = null;
           return { executed: false, reason: "error" };
@@ -286,7 +336,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await action();
       return { executed: true };
     },
-    [isAccessDenied, login, status, user]
+    [isAccessDenied, openAuthPopup, status, user]
   );
 
   const { authServerUrl, authUiUrl } = resolveAuthEndpoints();

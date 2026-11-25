@@ -1,4 +1,4 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useScopedQuery } from "@/hooks/useAuthQueryScope";
 import {
   fetchTantraHealth,
   fetchTantraTelemetry,
@@ -6,28 +6,25 @@ import {
 } from "@/api/tantraEndpoints";
 
 export const useTantraHealth = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["tantra-health"],
     queryFn: fetchTantraHealth,
     refetchInterval: 10_000, // 10s health polling
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useTantraTelemetry = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["tantra-telemetry"],
     queryFn: fetchTantraTelemetry,
     refetchInterval: 10_000, // 10s telemetry polling
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useTantraTelemetrySummary = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["tantra-telemetry-summary"],
     queryFn: fetchTantraTelemetrySummary,
     refetchInterval: 10_000, // 10s telemetry summary polling
-    placeholderData: keepPreviousData,
     retry: 1,
   });

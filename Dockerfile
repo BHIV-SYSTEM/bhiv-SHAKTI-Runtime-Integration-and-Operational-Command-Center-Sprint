@@ -13,6 +13,13 @@ RUN npm ci
 COPY . .
 
 
+# Build-time BHIV Auth configuration (API origin vs independent Login SPA origin)
+# Pass `--build-arg VITE_AUTH_UI_URL=<confirmed-login-spa-origin>` once confirmed; never falls back to API origin.
+ARG VITE_AUTH_SERVER_URL="https://auth.blackholeinfiverse.com"
+ARG VITE_AUTH_UI_URL=""
+ENV VITE_AUTH_SERVER_URL=${VITE_AUTH_SERVER_URL}
+ENV VITE_AUTH_UI_URL=${VITE_AUTH_UI_URL}
+
 # Set non-sensitive environment variables directly in the Dockerfile
 ENV VITE_CONTROL_PLANE_URL="/api/control-plane"
 ENV VITE_BUCKET_SERVICE_URL="/api/bucket"

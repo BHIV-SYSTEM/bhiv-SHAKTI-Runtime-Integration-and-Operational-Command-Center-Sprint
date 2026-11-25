@@ -1,11 +1,10 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useScopedQuery } from "@/hooks/useAuthQueryScope";
 import { fetchMitraHealth } from "@/api/mitraEndpoints";
 
 export const useMitraHealth = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["mitra-health"],
     queryFn: fetchMitraHealth,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });

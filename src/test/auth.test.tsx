@@ -19,16 +19,22 @@ import { useQuery } from "@tanstack/react-query";
 import { AxiosError, AxiosHeaders } from "axios";
 import {
   authClient,
+  buildBhivPopupLoginUrl,
   classifyAuthError,
   isSigninRequiredError,
   normalizeSsoSessionPayload,
+  resolveAuthEndpoints,
 } from "@/api/authClient";
 import { apiClient, extractRuntimeCorrelation } from "@/api/client";
 import { AuthProvider } from "@/context/AuthContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthorization } from "@/hooks/useAuthorization";
 import { useCurrentTenant } from "@/hooks/useCurrentTenant";
-import { CAPABILITY_POLICY_MATRIX, type KnownCapability } from "@/utils/authorization";
+import {
+  CAPABILITY_POLICY_MATRIX,
+  evaluateUserPermission,
+  type KnownCapability,
+} from "@/utils/authorization";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import Dashboard from "@/pages/Dashboard";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
@@ -313,7 +319,7 @@ describe("NIYANTRAN KENDRA — BHIV Core SSO & Authorization Regression Suite", 
           email: "admin@niyantran.com",
           tenant_id: "tenant_mssu_kharghar",
           roles: ["admin"],
-          permissions: ["all", "admin", "read", "write"],
+          permissions: ["all", "admin", "read", "write", "niyantran:admin"],
           allowedApps: ["niyantran", "setu"],
           isGuest: false,
         },
@@ -537,7 +543,10 @@ describe("NIYANTRAN KENDRA — BHIV Core SSO & Authorization Regression Suite", 
     expect(screen.getByTestId("resolved-tenant")).toHaveTextContent("null");
     expect(mockedUseQuery).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        queryKey: ["auth-me-tenant"],
+        queryKey: [
+          "auth-me-tenant",
+          "user:usr_no_tenant_bhiv:tenant:missing_tenant",
+        ],
         enabled: false,
       })
     );
@@ -555,7 +564,7 @@ describe("NIYANTRAN KENDRA — BHIV Core SSO & Authorization Regression Suite", 
             email: "operator@niyantran.com",
             tenant_id: "tenant_default",
             roles: ["operator"],
-            permissions: ["read", "write"],
+            permissions: ["read", "write", "operator:console_access"],
             allowedApps: ["niyantran"],
             isGuest: false,
           },
@@ -1136,5 +1145,358 @@ describe("NIYANTRAN KENDRA — BHIV Core SSO & Authorization Regression Suite", 
     expect(valid.status).toBe("authenticated");
     expect(valid.user?.isGuest).toBe(false);
     expect(valid.user?.user_id).toBe("usr_valid_01");
+  });
+
+  test("16. Auth UI origin stays unresolved when VITE_AUTH_UI_URL is empty and never defaults to API server", async () => {
+    vi.stubEnv("VITE_AUTH_SERVER_URL", "https://auth.blackholeinfiverse.com");
+    vi.stubEnv("VITE_AUTH_UI_URL", "");
+
+    const resolved = resolveAuthEndpoints();
+    expect(resolved.authServerUrl).toBe("https://auth.blackholeinfiverse.com");
+    expect(resolved.authUiUrl).toBe("");
+    expect(resolved.expectedPopupOrigin).toBeNull();
+    expect(buildBhivPopupLoginUrl(resolved.authUiUrl, "niyantran")).toBeNull();
+
+    vi.spyOn(authClient, "get").mockResolvedValueOnce({
+      data: {
+        authenticated: true,
+        guest: true,
+        user: {
+          user_id: "guest_no_ui_origin",
+          email: null,
+          tenant_id: "tenant_default",
+          roles: [],
+          permissions: [],
+          allowedApps: ["niyantran"],
+          isGuest: true,
+        },
+      },
+    });
+
+    const openSpy = vi.spyOn(window, "open").mockReturnValue({} as Window);
+    const onProtectedUi = vi.fn();
+    const onGuardResult = vi.fn();
+
+    render(
+      <AuthProvider>
+        <AuthConsumerHarness
+          onProtectedUiExecuted={onProtectedUi}
+          onLastGuardResult={onGuardResult}
+        />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("status")).toHaveTextContent("guest");
+    });
+
+    fireEvent.click(screen.getByTestId("trigger-protected-ui"));
+    await waitFor(() => {
+      expect(onGuardResult).toHaveBeenCalledWith({
+        executed: false,
+        reason: "error",
+      });
+    });
+
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(onProtectedUi).not.toHaveBeenCalled();
+  });
+
+  test("17. Strict RBAC requires both permitted role and capability-scoped permission for protected capabilities", () => {
+    const readOnlyCaps: KnownCapability[] = [
+      "dashboard:view",
+      "view_dashboard",
+      "telemetry:read",
+      "evidence:read",
+      "replay:read",
+      "health:read",
+    ];
+    const protectedReadCaps: KnownCapability[] = [
+      "operator:console_access",
+      "audit:inspect_protected",
+    ];
+    const mutationCaps: KnownCapability[] = [
+      "execute_workflow",
+      "workflow:execute",
+      "replay:trigger",
+      "alerts:acknowledge",
+      "intelligence:write",
+      "configure_system",
+      "system:configure",
+    ];
+
+    // Guest access restricted strictly to the six approved read-only capabilities
+    const guestUser = {
+      user_id: "guest_rbac",
+      email: null,
+      tenant_id: null,
+      roles: [],
+      permissions: [],
+      allowedApps: ["niyantran"],
+      isGuest: true,
+    };
+    for (const cap of readOnlyCaps) {
+      expect(evaluateUserPermission("guest", guestUser, cap)).toBe(true);
+    }
+    for (const cap of [...protectedReadCaps, ...mutationCaps]) {
+      expect(evaluateUserPermission("guest", guestUser, cap)).toBe(false);
+    }
+
+    // Empty roles[] MUST always fail protected capabilities even with admin/scoped permissions
+    const rolelessUser = {
+      user_id: "usr_roleless",
+      email: "roleless@blackholeinfiverse.com",
+      tenant_id: "tenant_a",
+      roles: [],
+      permissions: [
+        "admin",
+        "write",
+        "all",
+        "intelligence:*",
+        "niyantran:operator",
+        "niyantran:admin",
+        "operator:console_access",
+        "audit:inspect_protected",
+      ],
+      allowedApps: ["niyantran"],
+      isGuest: false,
+    };
+    for (const cap of [...protectedReadCaps, ...mutationCaps]) {
+      expect(evaluateUserPermission("authenticated", rolelessUser, cap)).toBe(false);
+    }
+
+    // Candidate & Viewer cannot escalate even when holding scoped/generic permissions
+    for (const lowRole of ["candidate", "viewer"]) {
+      const lowUser = {
+        ...rolelessUser,
+        user_id: `usr_${lowRole}`,
+        roles: [lowRole],
+      };
+      for (const cap of readOnlyCaps) {
+        expect(evaluateUserPermission("authenticated", lowUser, cap)).toBe(true);
+      }
+      for (const cap of [...protectedReadCaps, ...mutationCaps]) {
+        expect(evaluateUserPermission("authenticated", lowUser, cap)).toBe(false);
+      }
+    }
+
+    // Operator without explicit scoped permission (even with generic admin/write/all/intelligence:*) fails
+    const operatorMissingPerm = {
+      ...rolelessUser,
+      user_id: "usr_op_no_perm",
+      roles: ["operator"],
+      permissions: ["read", "write", "all", "admin", "intelligence:*"],
+    };
+    for (const cap of [...protectedReadCaps, ...mutationCaps]) {
+      expect(
+        evaluateUserPermission("authenticated", operatorMissingPerm, cap)
+      ).toBe(false);
+    }
+
+    // Operator with empty permissions fails
+    const operatorEmptyPerm = {
+      ...operatorMissingPerm,
+      permissions: [],
+    };
+    for (const cap of protectedReadCaps) {
+      expect(evaluateUserPermission("authenticated", operatorEmptyPerm, cap)).toBe(
+        false
+      );
+    }
+
+    // Operator with explicit scoped permission succeeds on protected reads, still blocked on mutations
+    const operatorScopedPerm = {
+      ...rolelessUser,
+      user_id: "usr_op_scoped",
+      roles: ["operator"],
+      permissions: ["operator:console_access", "audit:inspect_protected"],
+    };
+    expect(
+      evaluateUserPermission("authenticated", operatorScopedPerm, "operator:console_access")
+    ).toBe(true);
+    expect(
+      evaluateUserPermission("authenticated", operatorScopedPerm, "audit:inspect_protected")
+    ).toBe(true);
+    for (const cap of mutationCaps) {
+      expect(evaluateUserPermission("authenticated", operatorScopedPerm, cap)).toBe(
+        false
+      );
+    }
+
+    // Admin holding ONLY generic admin/write/all/intelligence:* is denied protected capabilities
+    const adminGenericOnly = {
+      ...rolelessUser,
+      user_id: "usr_admin_generic",
+      roles: ["admin"],
+      permissions: ["all", "admin", "read", "write", "intelligence:*"],
+    };
+    for (const cap of [...protectedReadCaps, ...mutationCaps]) {
+      expect(evaluateUserPermission("authenticated", adminGenericOnly, cap)).toBe(
+        false
+      );
+    }
+
+    // Admin with explicit scoped permission succeeds on protected non-mutations, still blocked on backendMutationVerified=false
+    const adminScoped = {
+      ...rolelessUser,
+      user_id: "usr_admin_scoped",
+      roles: ["admin"],
+      permissions: ["niyantran:admin"],
+    };
+    expect(
+      evaluateUserPermission("authenticated", adminScoped, "operator:console_access")
+    ).toBe(true);
+    expect(
+      evaluateUserPermission("authenticated", adminScoped, "audit:inspect_protected")
+    ).toBe(true);
+    for (const cap of mutationCaps) {
+      expect(CAPABILITY_POLICY_MATRIX[cap].backendMutationVerified).toBe(false);
+      expect(evaluateUserPermission("authenticated", adminScoped, cap)).toBe(false);
+    }
+
+    // Unknown capability always default-denies
+    expect(
+      evaluateUserPermission("authenticated", adminScoped, "arbitrary:action")
+    ).toBe(false);
+  });
+
+  test("18. Stale pending action from abandoned popup is cleared on direct login and unauthorized retry is blocked", async () => {
+    vi.spyOn(authClient, "get")
+      .mockResolvedValueOnce({
+        data: {
+          authenticated: true,
+          guest: true,
+          user: {
+            user_id: "guest_abandoned_01",
+            email: null,
+            tenant_id: "tenant_default",
+            roles: [],
+            permissions: [],
+            allowedApps: ["niyantran"],
+            isGuest: true,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          authenticated: true,
+          guest: false,
+          user: {
+            user_id: "usr_operator_direct",
+            email: "operator@blackholeinfiverse.com",
+            tenant_id: "tenant_a",
+            roles: ["operator"],
+            permissions: ["operator:console_access"],
+            allowedApps: ["niyantran"],
+            isGuest: false,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          authenticated: true,
+          guest: true,
+          user: {
+            user_id: "guest_retry_unauth",
+            email: null,
+            tenant_id: "tenant_default",
+            roles: [],
+            permissions: [],
+            allowedApps: ["niyantran"],
+            isGuest: true,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          authenticated: true,
+          guest: false,
+          user: {
+            user_id: "usr_candidate_retry",
+            email: "cand@blackholeinfiverse.com",
+            tenant_id: "tenant_a",
+            roles: ["candidate"],
+            permissions: ["operator:console_access"],
+            allowedApps: ["niyantran"],
+            isGuest: false,
+          },
+        },
+      });
+
+    const abandonedPopup = { closed: false } as unknown as Window;
+    const directLoginPopup = { closed: false } as unknown as Window;
+    const candidatePopup = { closed: false } as unknown as Window;
+    vi.spyOn(window, "open")
+      .mockReturnValueOnce(abandonedPopup)
+      .mockReturnValueOnce(directLoginPopup)
+      .mockReturnValueOnce(candidatePopup);
+
+    const onProtectedUi = vi.fn();
+
+    const { unmount } = render(
+      <AuthProvider>
+        <DashboardLayout>
+          <AuthConsumerHarness onProtectedUiExecuted={onProtectedUi} />
+        </DashboardLayout>
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("status")).toHaveTextContent("guest");
+    });
+
+    // Trigger protected action -> opens popup #1 & queues callback
+    fireEvent.click(screen.getByTestId("trigger-protected-ui"));
+    expect(onProtectedUi).not.toHaveBeenCalled();
+
+    // Visitor clicks Header Sign In directly -> clears orphaned pending action & opens popup #2
+    fireEvent.click(screen.getByRole("button", { name: /sign in with bhiv core/i }));
+
+    // Completing login via popup #2 authenticates user WITHOUT firing abandoned action
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          origin: "https://products.blackholeinfiverse.com",
+          source: directLoginPopup,
+          data: { type: "blackhole-auth-success" },
+        })
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("status")).toHaveTextContent("authenticated");
+    });
+    expect(onProtectedUi).not.toHaveBeenCalled();
+
+    unmount();
+
+    // Intentional queued action whose revalidated user lacks operator role/permission stays blocked
+    const onProtectedCandidate = vi.fn();
+    render(
+      <AuthProvider>
+        <AuthConsumerHarness onProtectedUiExecuted={onProtectedCandidate} />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("status")).toHaveTextContent("guest");
+    });
+
+    fireEvent.click(screen.getByTestId("trigger-protected-ui"));
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          origin: "https://products.blackholeinfiverse.com",
+          source: candidatePopup,
+          data: { type: "blackhole-auth-success" },
+        })
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("status")).toHaveTextContent("authenticated");
+    });
+    expect(onProtectedCandidate).not.toHaveBeenCalled();
   });
 });

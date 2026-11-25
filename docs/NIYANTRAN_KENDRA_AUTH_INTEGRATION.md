@@ -26,9 +26,10 @@
      │
      ├──► AuthProvider (src/context/AuthContext.tsx)
      │       ├── Boot Check: GET ${VITE_AUTH_SERVER_URL}/api/auth/sso/session?app=niyantran (withCredentials: true)
-     │       ├── Sign-In Popup: ${VITE_AUTH_UI_URL || VITE_AUTH_SERVER_URL}/login?embed=1&app=niyantran
-     │       ├── PostMessage Verification: exact origin match + data.type === "blackhole-auth-success"
-     │       └── Global Logout: POST ${VITE_AUTH_SERVER_URL}/api/auth/logout (withCredentials: true) -> refreshSession()
+     │       ├── Sign-In Popup: ${VITE_AUTH_UI_URL}/login?embed=1&app=niyantran (never guesses API host)
+     │       ├── PostMessage Verification: exact origin + window.source === popupWindowRef.current + type === "blackhole-auth-success"
+     │       ├── Cache Isolation: QueryClient cancelQueries/clear on logout & identity/tenant transitions
+     │       └── Global Logout: POST ${VITE_AUTH_SERVER_URL}/api/auth/logout (withCredentials: true) -> clear cache -> refreshSession()
      │
      ├──► useAuth() & useAuthorization() (Single Source of Truth, Strict Default-Deny RBAC)
      │       ├── Header.tsx (Loading / Guest Read-Only + Sign In / Verified Identity + Logout / 403 Access Denied)
@@ -72,6 +73,9 @@ Zero existing dashboard modules, zone layouts, or runtime API clients were delet
 | `3` | `playwright.config.ts` | Modified | Added `webServer` configuration (`npm run dev -- --port 5173`) for reproducible E2E execution. |
 | `3` | `src/test/e2e/dashboard.spec.ts` | Modified | 4 Chromium E2E tests validating NIYANTRAN KENDRA branding, guest entry, responsive grid, authenticated logout, Access Denied enforcement, and MITRA `host-app="shakti"` compatibility. |
 | `4` | `docs/NIYANTRAN_KENDRA_AUTH_INTEGRATION.md` | Created | Architecture, contract, security audit, deployment migration proposal, and rollback documentation. |
+| `5` | `Dockerfile`, `.github/workflows/cicd.yml`, `.github/workflows/pr-checks.yml`, `.env`, `.env.example` | Modified / Created | Phase 2B: independent `VITE_AUTH_UI_URL` build args (`ARG`/`ENV`), unresolved UI origin guard, and non-deploying `pull_request` CI workflow. |
+| `5` | `src/api/authClient.ts`, `src/utils/authorization.ts`, `src/context/AuthContext.tsx`, `src/utils/queryScope.ts`, `src/hooks/*`, `EvidenceLayout.tsx`, `WorkflowLayout.tsx` | Modified / Created | Phase 2B: strict role + scoped permission RBAC (`roles: []` blocked), React Query `QueryClient` clear + `useScopedQuery` tenant isolation, `missing_tenant` fallback removal, and orphaned pending action cleanup. |
+| `5` | `src/test/auth.test.tsx`, `src/test/tenantCacheIsolation.test.tsx` | Modified / Created | Phase 2B regression suites covering `VITE_AUTH_UI_URL=""`, strict RBAC matrix, stale pending actions, and real React Query cache isolation. |
 
 ---
 
@@ -105,7 +109,11 @@ Verified against `blackhole_auth` (`GUEST_MODE.md`, `backend/src/app.js`, `backe
 - **Strict PostMessage Origin & Window Source Verification**: `AuthContext` requires `popupWindowRef.current !== null`, `event.source === popupWindowRef.current`, `event.origin === extractExactOrigin(authUiUrl)`, and `event.data?.type === "blackhole-auth-success"`, rejecting `null` or mismatched sources and arbitrary origins.
 - **Strict Claim Validation**: `normalizeSsoSessionPayload` classifies a session as `authenticated` only when `authenticated === true`, `guest === false`, `user.isGuest === false`, `user_id` is valid, `roles`/`permissions`/`allowedApps` are arrays, and `allowedApps` includes `niyantran`. Contradictory or incomplete claims fail closed.
 - **Authoritative Tenant Boundary**: `useCurrentTenant` prioritizes verified BHIV SSO `tenant_id` for authenticated users and returns `missing_tenant` if a real BHIV user lacks `tenant_id` (never substituting a legacy SETU tenant); SETU `/api/auth/me` fallback runs only for guest or unauthenticated sessions.
-- **Role-Aligned Default-Deny RBAC**: Removed generic `write` and `all` permissions from protected/admin capabilities (`operator:console_access`, `audit:inspect_protected`, and mutations) and enforced `policy.allowedRoles` eligibility whenever a user carries roles so `candidate` users cannot escalate via generic permissions.
+- **Strict Auth UI Origin Separation**: `resolveAuthEndpoints()` keeps `VITE_AUTH_SERVER_URL` (API server) and `VITE_AUTH_UI_URL` (Login SPA) strictly separate (`VITE_AUTH_UI_URL` never defaults to `VITE_AUTH_SERVER_URL`). Popup login fails closed when `VITE_AUTH_UI_URL` is unresolved. `Dockerfile` declares `ARG`/`ENV VITE_AUTH_SERVER_URL` and `VITE_AUTH_UI_URL`, passed at image build time by `.github/workflows/cicd.yml`.
+- **Strict Role + Scoped Permission RBAC**: Protected capabilities (`allowGuest: false`) require **both** a non-empty matching permitted role (`user.roles.length > 0` intersecting `policy.allowedRoles`) **and** an explicit capability-scoped permission (`niyantran:*` / capability name). Generic `admin`, `write`, `all`, and wildcard `intelligence:*` permissions cannot grant protected access, `roles: []` always fails closed for protected capabilities, and guest access remains restricted to the six approved read-only capabilities.
+- **Multi-Tenant React Query Isolation**: `AuthProvider` clears `QueryClient` caches and cancels in-flight queries on `logout()` and any `user_id`/`tenant_id`/`status` change; `useScopedQuery` / `useCurrentTenant` key queries with `deriveAuthQueryScopeKey()` and use `scopedKeepPreviousData()` so Tenant A data cannot bleed across Tenant B, `missing_tenant`, or guest transitions. `EvidenceLayout` blocks `setuDashboard.data?.tenant_id` fallback when `missing_tenant` or authenticated without a tenant claim.
+- **Orphaned Pending Action Cleanup**: Direct `login()` clears stale `pendingActionRef.current` callbacks from abandoned popups while `executeProtectedAction` preserves intentional retry and revalidates session + RBAC before execution.
+- **Non-Deploying PR Validation**: `.github/workflows/pr-checks.yml` runs targeted ESLint, `npm run build`, Vitest, and Playwright E2E on `pull_request` to `main` without secrets or deployment steps.
 - **Distinct Error Handling**: `classifyAuthError` separates `401` (`unauthenticated`), `403` with `code: "signin_required"` (`signin_required`), `403` without `signin_required` (`app_access_denied`), and network/`5xx` (`unavailable`). Unrelated runtime API errors never open login popups.
 
 ### Documented Legacy `localStorage` Dependencies (Preserved Pending Separate Upstream Migration)
@@ -163,9 +171,9 @@ NIYANTRAN KENDRA's new BHIV Core SSO layer writes **zero** tokens to `localStora
 
 ## 7. Configuration Requirements
 
-### Frontend Build-Time Variables (`.env` / `.env.example`)
+### Frontend Build-Time Variables (`.env` / `.env.example` / `Dockerfile`)
 - `VITE_AUTH_SERVER_URL`: Canonical BHIV Auth API base URL (`https://auth.blackholeinfiverse.com` in production; e.g. `http://localhost:8080` in `.env.local` for local dev).
-- `VITE_AUTH_UI_URL`: Optional independent origin for the BHIV Auth Login SPA hosting `/login?embed=1&app=niyantran` (defaults to `VITE_AUTH_SERVER_URL` when empty; set to `https://products.blackholeinfiverse.com` or `http://localhost:5173` when the Auth SPA runs on a separate host/port from the Express API).
+- `VITE_AUTH_UI_URL`: Independent origin for the BHIV Auth Login SPA hosting `/login?embed=1&app=niyantran`. Never falls back to `VITE_AUTH_SERVER_URL`; remains `""` (unresolved) until the technical owner confirms the live Login SPA URL, and is injectable at Docker image build time via `ARG VITE_AUTH_UI_URL` (`--build-arg`).
 
 ### Auth Service (`blackhole_auth`) Production Requirements
 - `COOKIE_DOMAIN=.blackholeinfiverse.com`
@@ -179,31 +187,31 @@ NIYANTRAN KENDRA's new BHIV Core SSO layer writes **zero** tokens to `localStora
 
 ## 8. Test Results (Executed)
 
-All verification commands were executed on `feature/niyantran-kendra-auth-integration`:
+All verification commands were executed on `feature/niyantran-kendra-auth-integration` after Phase 2B security corrections:
 
-1. **Targeted ESLint on all 17 modified & newly created TS/TSX files**:
-   - Command: `npx eslint src/types/dashboard.types.ts src/config/dashboard.config.ts src/types/auth.ts src/api/authClient.ts src/utils/authorization.ts src/context/authContextValue.ts src/context/AuthContext.tsx src/hooks/useAuth.ts src/hooks/useAuthorization.ts src/hooks/useCurrentTenant.ts src/main.tsx src/components/layout/Header.tsx src/layouts/DashboardLayout.tsx src/vite-env.d.ts src/test/auth.test.tsx playwright.config.ts src/test/e2e/dashboard.spec.ts`
+1. **Targeted ESLint on auth, RBAC, cache isolation, query hook, and test files**:
    - Result: **PASS** (`Exit Code 0` — `0 errors, 0 warnings`)
 2. **Full Repository Lint (`npm run lint`)**:
-   - Result: `Exit Code 1` — `195 problems (183 errors, 12 warnings)`, down from `198` on baseline `0dccd4f3` (**zero** newly introduced errors or warnings).
+   - Pre-existing legacy lint issues in untouched dashboard/test files only (**zero** new errors or warnings in PR files).
 3. **Production Type-Check & Bundle Build (`npm run build`)**:
    - Command: `tsc -b && vite build`
-   - Result: **PASS** (`Exit Code 0` — `2,518 modules transformed`, `0` TypeScript errors).
+   - Result: **PASS** (`Exit Code 0` — `2,520 modules transformed`, `0` TypeScript errors).
 4. **Unit & Integration Tests (`npm run test`)**:
    - Command: `vitest run`
-   - Result: **PASS** (`Exit Code 0` — `10/10` test suites passed, `92/92` tests passed: `76` existing + `16` new auth/RBAC/tenant/security/correlation/offline tests).
+   - Result: **PASS** (`Exit Code 0` — `11/11` test suites passed, `99/99` tests passed: `19` in `src/test/auth.test.tsx`, `4` real `QueryClient` isolation tests in `src/test/tenantCacheIsolation.test.tsx`, `9` in `currentTenant.test.tsx`, and `67` across existing dashboard/endpoint suites).
 5. **End-to-End Browser Tests (`npm run test:e2e`)**:
    - Command: `playwright test`
-   - Result: **PASS** (`Exit Code 0` — `4/4` Chromium E2E tests passed in `3.7s`; `4 skipped` in `production-live.spec.ts` as expected when `PRODUCTION_URL` is unset).
+   - Result: **PASS** (`Exit Code 0` — `4/4` Chromium E2E tests passed in `3.6s`; `4 skipped` in `production-live.spec.ts` as expected when `PRODUCTION_URL` is unset).
 
 ---
 
 ## 9. Known Limitations
 
-1. **Split Auth API vs. Login SPA Hosting**: In `blackhole_auth`, Express (`backend/src/app.js`) serves `/api/*` while the React SPA (`frontend/src/pages/LoginPage.jsx`) serves `/login?embed=1&app=niyantran`. If `https://auth.blackholeinfiverse.com` only proxies to Express without serving the SPA on `/login`, `VITE_AUTH_UI_URL` must be set at build time to the Auth Launcher SPA origin (e.g. `https://products.blackholeinfiverse.com`).
+1. **Split Auth API vs. Login SPA Hosting**: In `blackhole_auth`, Express (`backend/src/app.js`) serves `/api/*` while the React SPA (`frontend/src/pages/LoginPage.jsx`) serves `/login?embed=1&app=niyantran`. Because `VITE_AUTH_UI_URL` no longer defaults to `VITE_AUTH_SERVER_URL`, `VITE_AUTH_UI_URL` must be set at image build time (`--build-arg VITE_AUTH_UI_URL=...` / repo variable `vars.VITE_AUTH_UI_URL`) once the technical owner confirms the live Login SPA origin.
 2. **Legacy Upstream Auth Contracts**: Niyantran (`workflow-blackhole`), Tantra, and Setu endpoints continue to use their existing `x-auth-token` / `Bearer` contracts until migrated to `blackhole_token`.
-3. **Pre-Existing Unrelated Lint Debt**: 198 pre-existing `@typescript-eslint/no-explicit-any` / `no-unused-vars` / `react-refresh` lint issues in untouched files remain unchanged per scope rules.
+3. **Pre-Existing Unrelated Lint Debt**: Pre-existing `@typescript-eslint/no-explicit-any` / `no-unused-vars` / `react-refresh` lint issues in untouched files remain unchanged per scope rules.
 4. **Documented Upstream 404 Secondary Routes**: SANSKAR (`/ranking`, `/trace/:id`) and InsightFlow (`/stage-metrics`, `/bucket/status`) secondary routes continue to rely on existing resilient empty fallbacks.
+5. **UI Component Gating**: `useAuthorization()` enforces strict RBAC in hooks and `AuthProvider`, while visual layout components remain read-only until protected console controls or verified backend write routes are wired.
 
 ---
 
@@ -248,7 +256,7 @@ curl -sf http://localhost:5176 > /dev/null && echo "Rollback healthy"
 
 ## 12. Outstanding Decisions
 
-1. **Auth Popup Origin Confirmation in Production**: Confirm with BHIV Auth / DevOps whether `https://auth.blackholeinfiverse.com/login?embed=1&app=niyantran` is reverse-proxied directly to the Auth SPA (`VITE_AUTH_UI_URL=""`) or whether `VITE_AUTH_UI_URL="https://products.blackholeinfiverse.com"` (or `https://pravesh.blackholeinfiverse.com`) should be baked into the production image.
+1. **Auth Popup Origin Confirmation in Production**: Confirm with BHIV Auth / DevOps the exact deployed URL serving the Auth Login SPA (`/login?embed=1&app=niyantran`) and configure `VITE_AUTH_UI_URL` explicitly at image build time (`--build-arg VITE_AUTH_UI_URL=<confirmed-origin>` / `vars.VITE_AUTH_UI_URL`). While `VITE_AUTH_UI_URL` remains unset (`""`), popup sign-in safely stays disabled rather than guessing `VITE_AUTH_SERVER_URL`.
 2. **MITRA `host-app` Identifier**: Confirm with the MITRA team whether `host-app="niyantran"` is accepted before changing `host-app="shakti"` in `index.html` and `MitraFloatingCompanion.tsx`.
 3. **PRAVAH `X-Source-System` Header**: Confirm with the PRAVAH team before changing `X-Source-System: "SHAKTI"` in `src/api/pravahEndpoints.ts` and `vite.config.ts`.
 4. **Upstream `blackhole_token` Adoption**: Coordinate with Niyantran (`workflow-blackhole`), Setu, and Tantra service owners to accept `blackhole_token` SSO cookies and enforce `isGuest: false` on mutations so legacy `localStorage` tokens can be retired.

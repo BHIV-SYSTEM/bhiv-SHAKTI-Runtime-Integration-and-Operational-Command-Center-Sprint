@@ -1,4 +1,4 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useScopedQuery } from "@/hooks/useAuthQueryScope";
 import {
   fetchKarmaHealth,
   fetchKarmaLatestHash,
@@ -15,37 +15,35 @@ import {
 } from "@/api/karmaEndpoints";
 
 export const useKarmaHealth = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["karma-health"],
     queryFn: fetchKarmaHealth,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useKarmaLatestHash = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["karma-latest-hash"],
     queryFn: fetchKarmaLatestHash,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useKarmaLineage = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["karma-lineage"],
     queryFn: fetchKarmaLineage,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useKarmaAncestry = (eventId?: string) =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["karma-ancestry", eventId],
     queryFn: () => fetchKarmaAncestry(eventId!),
     enabled: !!eventId,
+    preservePreviousData: false,
     retry: 1,
   });
 
@@ -53,10 +51,11 @@ export const useKarmaConfidence = (
   trajectoryId?: string,
   params?: KarmaConfidenceParams
 ) =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["karma-confidence", trajectoryId, params],
     queryFn: () => fetchKarmaConfidence(trajectoryId!, params),
     enabled: !!trajectoryId,
+    preservePreviousData: false,
     retry: 1,
   });
 
@@ -64,45 +63,42 @@ export const useKarmaReasoning = (
   trajectoryId?: string,
   params?: KarmaReasoningParams
 ) =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["karma-reasoning", trajectoryId, params],
     queryFn: () => fetchKarmaReasoning(trajectoryId!, params),
     enabled: !!trajectoryId,
+    preservePreviousData: false,
     retry: 1,
   });
 
 export const useKarmaLiveMetrics = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["karma-live-metrics"],
     queryFn: fetchKarmaLiveMetrics,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useKarmaTrends = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["karma-trends"],
     queryFn: fetchKarmaTrends,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useKarmaDharmaSevaFlow = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["karma-dharma-seva-flow"],
     queryFn: fetchKarmaDharmaSevaFlow,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useKarmaPaapPunyaRatio = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["karma-paap-punya-ratio"],
     queryFn: fetchKarmaPaapPunyaRatio,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });

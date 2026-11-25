@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getSetuAuthMe } from "@/api/setuEndpoints";
 import { useAuth } from "@/hooks/useAuth";
+import { deriveAuthQueryScopeKey } from "@/utils/queryScope";
 import type { SetuAuthUser } from "@/types/setu";
 
 export type TenantResolutionStatus =
@@ -63,11 +64,17 @@ export function useCurrentTenant(): CurrentTenantResult {
       ? bhivVerifiedUser.tenant_id.trim()
       : null;
 
+  const scopeKey = deriveAuthQueryScopeKey({
+    status: auth.status,
+    user: auth.user,
+    isAccessDenied: auth.isAccessDenied,
+  });
+
   const shouldQuerySetuFallback =
     !auth.isLoading && !auth.isAccessDenied && !bhivVerifiedUser;
 
   const query = useQuery({
-    queryKey: ["auth-me-tenant"],
+    queryKey: ["auth-me-tenant", scopeKey],
     queryFn: getSetuAuthMe,
     staleTime: 60_000,
     refetchInterval: 30_000,

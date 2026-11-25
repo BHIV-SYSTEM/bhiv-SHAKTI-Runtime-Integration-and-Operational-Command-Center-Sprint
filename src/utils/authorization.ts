@@ -115,7 +115,6 @@ export const CAPABILITY_POLICY_MATRIX: Readonly<Record<KnownCapability, Capabili
     isMutation: false,
     allowedRoles: ["admin", "operator"],
     allowedPermissions: [
-      "admin",
       "niyantran:operator",
       "niyantran:admin",
       "operator:console_access",
@@ -127,9 +126,7 @@ export const CAPABILITY_POLICY_MATRIX: Readonly<Record<KnownCapability, Capabili
     isMutation: false,
     allowedRoles: ["admin", "operator"],
     allowedPermissions: [
-      "admin",
       "intelligence:admin",
-      "intelligence:*",
       "niyantran:audit",
       "niyantran:admin",
       "audit:inspect_protected",
@@ -141,7 +138,6 @@ export const CAPABILITY_POLICY_MATRIX: Readonly<Record<KnownCapability, Capabili
     isMutation: true,
     allowedRoles: ["admin", "operator"],
     allowedPermissions: [
-      "admin",
       "niyantran:execute",
       "niyantran:admin",
       "workflow:execute",
@@ -153,7 +149,6 @@ export const CAPABILITY_POLICY_MATRIX: Readonly<Record<KnownCapability, Capabili
     isMutation: true,
     allowedRoles: ["admin", "operator"],
     allowedPermissions: [
-      "admin",
       "niyantran:execute",
       "niyantran:admin",
       "workflow:execute",
@@ -165,7 +160,6 @@ export const CAPABILITY_POLICY_MATRIX: Readonly<Record<KnownCapability, Capabili
     isMutation: true,
     allowedRoles: ["admin", "operator"],
     allowedPermissions: [
-      "admin",
       "niyantran:execute",
       "niyantran:admin",
       "replay:trigger",
@@ -177,7 +171,6 @@ export const CAPABILITY_POLICY_MATRIX: Readonly<Record<KnownCapability, Capabili
     isMutation: true,
     allowedRoles: ["admin", "operator"],
     allowedPermissions: [
-      "admin",
       "niyantran:write",
       "niyantran:admin",
       "alerts:acknowledge",
@@ -189,10 +182,9 @@ export const CAPABILITY_POLICY_MATRIX: Readonly<Record<KnownCapability, Capabili
     isMutation: true,
     allowedRoles: ["admin"],
     allowedPermissions: [
-      "admin",
       "intelligence:write",
       "intelligence:admin",
-      "intelligence:*",
+      "niyantran:admin",
     ],
     backendMutationVerified: false,
   },
@@ -201,10 +193,8 @@ export const CAPABILITY_POLICY_MATRIX: Readonly<Record<KnownCapability, Capabili
     isMutation: true,
     allowedRoles: ["admin"],
     allowedPermissions: [
-      "admin",
       "niyantran:admin",
       "intelligence:admin",
-      "intelligence:*",
       "system:configure",
     ],
     backendMutationVerified: false,
@@ -214,10 +204,8 @@ export const CAPABILITY_POLICY_MATRIX: Readonly<Record<KnownCapability, Capabili
     isMutation: true,
     allowedRoles: ["admin"],
     allowedPermissions: [
-      "admin",
       "niyantran:admin",
       "intelligence:admin",
-      "intelligence:*",
       "system:configure",
     ],
     backendMutationVerified: false,
@@ -324,31 +312,28 @@ export function evaluateUserPermission(
     return true;
   }
 
-  // Enforce role eligibility for protected capabilities:
-  // When a user carries explicit roles (e.g. ["candidate"] or ["viewer"]), they must
-  // satisfy at least one role in `policy.allowedRoles` — preventing privilege escalation
-  // via generic or misplaced permission claims.
-  const hasMatchingRole = policy.allowedRoles.some((allowedRole) =>
-    evaluateUserRole(status, user, allowedRole)
-  );
-  if (user.roles.length > 0 && !hasMatchingRole) {
+  // Strict RBAC for protected capabilities:
+  // 1. User MUST have at least one role (`roles: []` always fails closed).
+  // 2. At least one user role MUST satisfy `policy.allowedRoles` (candidate/viewer cannot escalate).
+  // 3. User MUST also carry an explicit capability-scoped permission from `policy.allowedPermissions`
+  //    (generic `admin`, `write`, `all`, or wildcard permissions never independently grant access).
+  if (user.roles.length === 0) {
     return false;
   }
 
-  if (hasMatchingRole) {
-    return true;
+  const hasMatchingRole = policy.allowedRoles.some((allowedRole) =>
+    evaluateUserRole(status, user, allowedRole)
+  );
+  if (!hasMatchingRole) {
+    return false;
   }
 
   const normalizedPermissions = new Set(
     user.permissions.map((p) => p.toLowerCase())
   );
-  for (const allowedPerm of policy.allowedPermissions) {
-    if (normalizedPermissions.has(allowedPerm.toLowerCase())) {
-      return true;
-    }
-  }
-
-  return false;
+  return policy.allowedPermissions.some((allowedPerm) =>
+    normalizedPermissions.has(allowedPerm.toLowerCase())
+  );
 }
 
 /**

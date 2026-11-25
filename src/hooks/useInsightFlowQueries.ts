@@ -1,4 +1,4 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useScopedQuery } from "@/hooks/useAuthQueryScope";
 import {
   fetchInsightFlowHealth,
   fetchInsightFlowStageMetrics,
@@ -6,25 +6,22 @@ import {
 } from "@/api/insightflowEndpoints";
 
 export const useInsightFlowHealth = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["insightflow-health"],
     queryFn: fetchInsightFlowHealth,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
   });
 
 export const useInsightFlowStageMetrics = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["insightflow-stage-metrics"],
     queryFn: fetchInsightFlowStageMetrics,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
   });
 
 export const useInsightFlowBucketStatus = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["insightflow-bucket-status"],
     queryFn: fetchInsightFlowBucketStatus,
     refetchInterval: 15_000,
-    placeholderData: keepPreviousData,
   });

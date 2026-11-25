@@ -2,6 +2,7 @@ import { memo, useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { useSetuProjects } from "@/hooks/useSetuQueries";
+import { useAuthQueryScope } from "@/hooks/useAuthQueryScope";
 import { getProjectMilestones } from "@/api/setuEndpoints";
 import { formatTime } from "@/utils/format";
 
@@ -23,6 +24,7 @@ const getStatusBadgeClass = (status: string) => {
 };
 
 export default memo(function WorkflowLayout() {
+  const scopeKey = useAuthQueryScope();
   const setuProjects = useSetuProjects();
   const rawProjects = setuProjects.data;
   const projects = useMemo<any[]>(() => {
@@ -34,7 +36,7 @@ export default memo(function WorkflowLayout() {
 
   const milestoneQueries = useQueries({
     queries: projects.map((p: any) => ({
-      queryKey: ["setu", "project-milestones", p?.id],
+      queryKey: ["setu", "project-milestones", p?.id, scopeKey],
       queryFn: () => (p?.id ? getProjectMilestones(p.id) : Promise.resolve([])),
       enabled: !!p?.id,
     })),

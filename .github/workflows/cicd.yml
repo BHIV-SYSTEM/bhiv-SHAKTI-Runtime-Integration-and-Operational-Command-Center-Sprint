@@ -64,10 +64,14 @@ jobs:
           EXECUTION_KEY: ${{ secrets.VITE_NIYANTRAN_EXECUTION_KEY }}
           AUTH_TOKEN: ${{ secrets.VITE_NIYANTRAN_AUTH_TOKEN }}
           BRIDGE_SIGNATURE: ${{ secrets.VITE_TANTRA_BRIDGE_SIGNATURE }}
+          AUTH_SERVER_URL: ${{ vars.VITE_AUTH_SERVER_URL || 'https://auth.blackholeinfiverse.com' }}
+          AUTH_UI_URL: ${{ vars.VITE_AUTH_UI_URL }}
         run: |
           docker buildx build --push \
             --tag bhiv/shakti-dashboard:${{ steps.vars.outputs.sha_short }} \
             --tag bhiv/shakti-dashboard:latest \
+            --build-arg VITE_AUTH_SERVER_URL="$AUTH_SERVER_URL" \
+            --build-arg VITE_AUTH_UI_URL="$AUTH_UI_URL" \
             --build-arg VITE_NIYANTRAN_EXECUTION_KEY="$EXECUTION_KEY" \
             --build-arg VITE_NIYANTRAN_AUTH_TOKEN="$AUTH_TOKEN" \
             --build-arg VITE_TANTRA_BRIDGE_SIGNATURE="$BRIDGE_SIGNATURE" \

@@ -41,7 +41,8 @@ export function extractExactOrigin(urlStr: string): string | null {
 
 /**
  * Resolves BHIV Core Auth API and Login Popup UI URLs from Vite environment variables.
- * Keeps VITE_AUTH_SERVER_URL and VITE_AUTH_UI_URL independently configurable.
+ * Keeps VITE_AUTH_SERVER_URL and VITE_AUTH_UI_URL strictly independent:
+ * never assumes VITE_AUTH_SERVER_URL serves the Login SPA (`/login`).
  */
 export function resolveAuthEndpoints(envOverride?: {
   VITE_AUTH_SERVER_URL?: string;
@@ -63,12 +64,10 @@ export function resolveAuthEndpoints(envOverride?: {
     .trim()
     .replace(/\/+$/, "");
 
-  const authUiUrl = rawUi || rawServer;
-
   return {
     authServerUrl: rawServer,
-    authUiUrl,
-    expectedPopupOrigin: extractExactOrigin(authUiUrl),
+    authUiUrl: rawUi,
+    expectedPopupOrigin: extractExactOrigin(rawUi),
   };
 }
 

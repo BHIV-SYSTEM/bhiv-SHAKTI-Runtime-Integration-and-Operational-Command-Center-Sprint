@@ -119,11 +119,23 @@ export default memo(function EvidenceLayout() {
     );
   }, [activeSovereignTrace?.execution_id, setuDashboard.data?.execution_id, pravahRegistry.data]);
 
-  // Authoritative tenant ID: sourced from authoritative tenant provider (/api/auth/me)
-  // or confirmed SETU backend response. STRICT RULE: Never invented, defaulted, or conflated with trace/execution/request ID.
+  // Authoritative tenant ID: sourced from authoritative tenant provider (BHIV Core / /api/auth/me)
+  // or non-authenticated SETU dashboard observation. Never substitutes SETU dashboard data when
+  // authoritative resolution returns `missing_tenant` or authenticated lacks a tenant claim.
   const effectiveTenantId = useMemo(() => {
-    return authoritativeTenantId || setuDashboard.data?.tenant_id || "";
-  }, [authoritativeTenantId, setuDashboard.data?.tenant_id]);
+    if (authoritativeTenantId) {
+      return authoritativeTenantId;
+    }
+    if (currentTenant.status === "missing_tenant" || currentTenant.isAuthenticated) {
+      return "";
+    }
+    return setuDashboard.data?.tenant_id || "";
+  }, [
+    authoritativeTenantId,
+    currentTenant.isAuthenticated,
+    currentTenant.status,
+    setuDashboard.data?.tenant_id,
+  ]);
 
   const hasEvidenceRef = useMemo(() => {
     return Boolean(

@@ -1,4 +1,4 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useScopedQuery } from "@/hooks/useAuthQueryScope";
 import {
   fetchPranaHealth,
   fetchPranaSystemHealth,
@@ -6,25 +6,22 @@ import {
 } from "@/api/pranaEndpoints";
 
 export const usePranaHealth = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["prana-health"],
     queryFn: fetchPranaHealth,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
   });
 
 export const usePranaSystemHealth = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["prana-system-health"],
     queryFn: fetchPranaSystemHealth,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
   });
 
 export const usePranaPropagationLog = (limit = 50) =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["prana-propagation-log", limit],
     queryFn: () => fetchPranaPropagationLog(limit),
     refetchInterval: 5_000,
-    placeholderData: keepPreviousData,
   });

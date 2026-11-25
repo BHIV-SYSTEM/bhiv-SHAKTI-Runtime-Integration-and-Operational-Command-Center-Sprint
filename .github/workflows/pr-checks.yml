@@ -1,0 +1,78 @@
+name: PR Security & Quality Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, Typecheck, Build, Unit & E2E
+    runs-on: ubuntu-latest
+    env:
+      VITE_AUTH_SERVER_URL: https://auth.blackholeinfiverse.com
+      VITE_AUTH_UI_URL: ""
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run targeted ESLint on auth, RBAC, cache isolation, and test files
+        run: |
+          npx eslint \
+            playwright.config.ts \
+            src/api/authClient.ts \
+            src/components/layout/Header.tsx \
+            src/config/dashboard.config.ts \
+            src/context/AuthContext.tsx \
+            src/context/authContextValue.ts \
+            src/hooks/useAuth.ts \
+            src/hooks/useAuthQueryScope.ts \
+            src/hooks/useAuthorization.ts \
+            src/hooks/useBucketQueries.ts \
+            src/hooks/useCurrentTenant.ts \
+            src/hooks/useInsightFlowQueries.ts \
+            src/hooks/useKarmaQueries.ts \
+            src/hooks/useKeshavQueries.ts \
+            src/hooks/useMitraQueries.ts \
+            src/hooks/useNiyantranQueries.ts \
+            src/hooks/usePranaQueries.ts \
+            src/hooks/usePravahQueries.ts \
+            src/hooks/useQueries.ts \
+            src/hooks/useRajyaQueries.ts \
+            src/hooks/useSanskarQueries.ts \
+            src/hooks/useSetuQueries.ts \
+            src/hooks/useTantraQueries.ts \
+            src/layouts/DashboardLayout.tsx \
+            src/main.tsx \
+            src/test/auth.test.tsx \
+            src/test/tenantCacheIsolation.test.tsx \
+            src/test/e2e/dashboard.spec.ts \
+            src/types/auth.ts \
+            src/types/dashboard.types.ts \
+            src/utils/authorization.ts \
+            src/utils/queryScope.ts \
+            src/vite-env.d.ts
+
+      - name: TypeScript type-check and production build
+        run: npm run build
+
+      - name: Run Vitest unit and integration suite
+        run: npm run test
+
+      - name: Install Playwright Chromium browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E suite
+        run: npm run test:e2e

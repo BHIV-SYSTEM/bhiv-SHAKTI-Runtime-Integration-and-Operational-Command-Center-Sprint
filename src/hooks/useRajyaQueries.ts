@@ -1,4 +1,4 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useScopedQuery } from "@/hooks/useAuthQueryScope";
 import {
   fetchRajyaHealth,
   fetchSovereignTraces,
@@ -6,28 +6,25 @@ import {
 } from "@/api/rajyaEndpoints";
 
 export const useRajyaHealth = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["rajya-health"],
     queryFn: fetchRajyaHealth,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useSovereignTraces = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["sovereign-traces"],
     queryFn: fetchSovereignTraces,
     refetchInterval: 3_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useSovereignBucketEntries = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["sovereign-bucket-entries"],
     queryFn: fetchSovereignBucketEntries,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });

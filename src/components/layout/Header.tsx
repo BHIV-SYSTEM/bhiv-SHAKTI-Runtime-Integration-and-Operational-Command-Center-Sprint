@@ -17,6 +17,7 @@ export default function Header() {
     isAuthenticated,
     isGuest,
     isAccessDenied,
+    authUiUrl,
     login,
     logout,
     refreshSession,
@@ -176,6 +177,11 @@ export default function Header() {
                 onClick={() => {
                   login();
                 }}
+                title={
+                  authUiUrl
+                    ? "Sign in with BHIV Core"
+                    : "Login UI URL (VITE_AUTH_UI_URL) is awaiting environment confirmation"
+                }
                 className="ml-1 inline-flex items-center gap-1 rounded border border-indigo-500/40 bg-indigo-600/80 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-500 transition-colors"
                 aria-label="Sign in with BHIV Core"
               >
