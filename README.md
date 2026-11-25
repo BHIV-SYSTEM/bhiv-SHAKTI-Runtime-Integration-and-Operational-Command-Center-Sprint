@@ -1,6 +1,6 @@
-# SHAKTI Executive Dashboard Capability
+# NIYANTRAN KENDRA — Runtime Integration & Operational Command Center
 
-A production-grade, highly resilient, and configuration-driven React dashboard capability designed for government enterprise and high-stakes operations.
+A production-grade, highly resilient, and configuration-driven React operational command center (`appSlug: niyantran`, production URL: `https://niyantran.blackholeinfiverse.com`) integrated with BHIV Core centralized SSO and ecosystem microservices.
 
 ## Overview
 This is **NOT** a bespoke dashboard. This is a reusable, composable dashboard *capability* powered by a robust configuration schema (`DashboardProvider.tsx`). It provides 19 standardized `Layouts` and 16 reusable `Primitives`, allowing rapid assembly of diverse command center interfaces without touching backend services.

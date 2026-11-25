@@ -1,28 +1,27 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useScopedQuery } from "@/hooks/useAuthQueryScope";
 import { getHealth, getRanking, getTrace } from "@/api/sanskarEndpoints";
 
 export const useSanskarHealth = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["sanskar-health"],
     queryFn: getHealth,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useSanskarRanking = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["sanskar-ranking"],
     queryFn: getRanking,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useSanskarTrace = (traceId?: string) =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["sanskar-trace", traceId],
     queryFn: () => getTrace(traceId!),
     enabled: !!traceId,
+    preservePreviousData: false,
     retry: 1,
   });

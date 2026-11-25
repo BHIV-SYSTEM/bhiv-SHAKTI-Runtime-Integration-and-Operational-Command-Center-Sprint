@@ -1,21 +1,19 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useScopedQuery } from "@/hooks/useAuthQueryScope";
 import {
   getHealth,
   getMetricsJson,
 } from "@/api/keshavEndpoints";
 
 export const useKeshavHealth = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["keshav-health"],
     queryFn: getHealth,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
   });
 
 export const useKeshavMetrics = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["keshav-metrics-json"],
     queryFn: getMetricsJson,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
   });

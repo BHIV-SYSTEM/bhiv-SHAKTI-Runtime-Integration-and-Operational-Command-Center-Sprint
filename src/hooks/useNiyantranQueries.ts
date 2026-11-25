@@ -1,4 +1,4 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useScopedQuery } from "@/hooks/useAuthQueryScope";
 import {
   fetchNiyantranStats,
   fetchNiyantranTasksOverview,
@@ -16,38 +16,34 @@ import {
 } from "@/api/niyantranEndpoints";
 
 export const useNiyantranStats = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["niyantran-stats"],
     queryFn: fetchNiyantranStats,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useNiyantranTasksOverview = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["niyantran-tasks-overview"],
     queryFn: fetchNiyantranTasksOverview,
     refetchInterval: 15_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useNiyantranDepartments = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["niyantran-departments"],
     queryFn: fetchNiyantranDepartments,
     refetchInterval: 30_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useNiyantranLeaderboard = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["niyantran-leaderboard"],
     queryFn: fetchNiyantranLeaderboard,
     refetchInterval: 15_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
@@ -57,11 +53,10 @@ export const useNiyantranAttendanceSummary = (params?: {
   departmentId?: string;
   status?: string;
 }) =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["niyantran-attendance-summary", params],
     queryFn: () => fetchNiyantranAttendanceSummary(params),
     refetchInterval: 15_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
@@ -70,66 +65,59 @@ export const useNiyantranMergeAnalysis = (params?: {
   endDate?: string;
   departmentId?: string;
 }) =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["niyantran-merge-analysis", params],
     queryFn: () => fetchNiyantranMergeAnalysis(params),
     refetchInterval: 20_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useNiyantranExecutionHistory = (executionId?: string, tenantId?: string) =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["niyantran-execution-history", executionId, tenantId],
     queryFn: () => fetchNiyantranExecutionHistory(executionId!, tenantId),
     enabled: Boolean(executionId),
     refetchInterval: 5_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useNiyantranAims = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["niyantran-aims"],
     queryFn: () => fetchNiyantranAims(),
     refetchInterval: 15_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useNiyantranEnhancedAims = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["niyantran-enhanced-aims"],
     queryFn: () => fetchNiyantranEnhancedAims(),
     refetchInterval: 15_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useNiyantranAlerts = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["niyantran-alerts"],
     queryFn: fetchNiyantranAlerts,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useNiyantranSubmissions = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["niyantran-submissions"],
     queryFn: fetchNiyantranSubmissions,
     refetchInterval: 15_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 export const useNiyantranTasks = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["niyantran-tasks"],
     queryFn: fetchNiyantranTasks,
     refetchInterval: 15_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
@@ -137,10 +125,9 @@ export const useNiyantranLiveLocations = (params?: {
   date?: string;
   department?: string;
 }) =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["niyantran-live-locations", params],
     queryFn: () => fetchNiyantranLiveLocations(params),
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });

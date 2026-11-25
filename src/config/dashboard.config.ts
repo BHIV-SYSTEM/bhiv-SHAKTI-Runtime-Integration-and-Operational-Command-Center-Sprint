@@ -1,21 +1,23 @@
-// ─── SHAKTI Default Configuration ─────────────────────────────────────────────
-// This config reproduces the exact current SHAKTI dashboard UI.
-// It serves as the reference implementation for all future system integrations.
+// ─── NIYANTRAN KENDRA Default Configuration ───────────────────────────────────
+// Canonical product configuration for NIYANTRAN KENDRA (slug: "niyantran").
+// It serves as the reference implementation for all system integrations.
 //
-// To create a new system config, copy this file and change only the fields
-// that differ. The DashboardProvider deep-merges your overrides with these defaults.
+// To create a custom view config, pass partial overrides to DashboardProvider;
+// DashboardProvider deep-merges your overrides with these defaults.
 
 import { Zap } from "lucide-react";
 import type { DashboardConfig } from "@/types/dashboard.types";
 
 export const defaultDashboardConfig: DashboardConfig = {
   branding: {
-    systemName: "SHAKTI",
-    subtitle: "Operational Command Center",
+    systemName: "NIYANTRAN KENDRA",
+    subtitle: "Runtime Integration & Operational Command Center",
+    appSlug: "niyantran",
+    productionUrl: "https://niyantran.blackholeinfiverse.com",
     logoIcon: Zap,
-    operatorLabel: "Operator",
-    roleLabel: "Grid Control",
-    operatorInitials: "OP",
+    operatorLabel: "Guest",
+    roleLabel: "Read-Only",
+    operatorInitials: "GU",
   },
 
   zones: {

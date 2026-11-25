@@ -1,6 +1,6 @@
-# Shakti Command Center - Testing Guide
+# NIYANTRAN KENDRA - Testing Guide
 
-This guide details the steps to set up, configure, and execute the test suites implemented for the **Shakti Command Center** dashboard. 
+This guide details the steps to set up, configure, and execute the test suites implemented for the **NIYANTRAN KENDRA** (`Runtime Integration & Operational Command Center`) dashboard. 
 
 The test stack covers:
 - **Unit and Component Tests**: Powered by [Vitest](https://vitest.dev/) and [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/).

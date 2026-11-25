@@ -1,4 +1,4 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useScopedQuery } from "@/hooks/useAuthQueryScope";
 import {
   fetchHealth,
   fetchSystemStatus,
@@ -22,81 +22,73 @@ import {
 
 // GET /health — lightweight liveness probe
 export const useHealth = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["health"],
     queryFn: fetchHealth,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 // GET /system/status → SystemHealth zone
 export const useSystemStatus = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["system-status"],
     queryFn: fetchSystemStatus,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 // GET /metrics → Live KPIs zone
 export const useMetrics = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["metrics"],
     queryFn: fetchMetrics,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 // GET /dashboard/executive → Executive Summary zone
 export const useExecutiveDashboard = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["dashboard-executive"],
     queryFn: fetchExecutiveDashboard,
     refetchInterval: 15_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 // GET /dashboard/operations → Operations / Incident Queue zone
 export const useOperationsDashboard = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["dashboard-operations"],
     queryFn: fetchOperationsDashboard,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 // GET /dashboard/alerts → Live Alert Queue zone
 export const useAlertsDashboard = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["dashboard-alerts"],
     queryFn: fetchAlertsDashboard,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 // GET /dashboard/runtime → Replay Status zone
 export const useRuntimeDashboard = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["dashboard-runtime"],
     queryFn: fetchRuntimeDashboard,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 // GET /dashboard/telemetry → Forecast / Telemetry zone
 export const useTelemetryDashboard = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["dashboard-telemetry"],
     queryFn: fetchTelemetryDashboard,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
@@ -105,11 +97,10 @@ export const useTelemetryDashboard = () =>
 // - Future implementation: Canonical BHEX Registry service.
 // - Layouts: require zero changes.
 export const useRepositoryRegistry = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["registry-repositories"],
     queryFn: fetchRepositoryRegistry,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
@@ -118,11 +109,10 @@ export const useRepositoryRegistry = () =>
 // - Future implementation: Canonical BHEX Registry service.
 // - Layouts: require zero changes.
 export const useBuildRegistry = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["registry-builds"],
     queryFn: fetchBuildRegistry,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
@@ -131,11 +121,10 @@ export const useBuildRegistry = () =>
 // - Future implementation: Canonical BHEX Registry service.
 // - Layouts: require zero changes.
 export const useMigrationQueue = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["queue-migration"],
     queryFn: fetchMigrationQueue,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
@@ -144,11 +133,10 @@ export const useMigrationQueue = () =>
 // - Future implementation: Canonical BHEX Registry service.
 // - Layouts: require zero changes.
 export const useReviewQueue = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["queue-review"],
     queryFn: fetchReviewQueue,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
@@ -157,40 +145,36 @@ export const useReviewQueue = () =>
 // - Future implementation: Canonical BHEX Registry service.
 // - Layouts: require zero changes.
 export const useCapabilityRegistry = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["registry-capabilities"],
     queryFn: fetchCapabilityRegistry,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 // GET /operations/employee-execution → Employee Execution Operational View
 export const useEmployeeExecution = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["operations-employee-execution"],
     queryFn: fetchEmployeeExecution,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 // GET /operations/engineering-capacity → Engineering Capacity Operational View
 export const useEngineeringCapacity = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["operations-engineering-capacity"],
     queryFn: fetchEngineeringCapacity,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });
 
 // GET /operations/delivery-intelligence → Delivery Intelligence Operational View
 export const useDeliveryIntelligence = () =>
-  useQuery({
+  useScopedQuery({
     queryKey: ["operations-delivery-intelligence"],
     queryFn: fetchDeliveryIntelligence,
     refetchInterval: 10_000,
-    placeholderData: keepPreviousData,
     retry: 1,
   });

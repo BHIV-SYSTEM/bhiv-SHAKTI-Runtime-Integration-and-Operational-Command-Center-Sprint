@@ -7,17 +7,21 @@ import type { LucideIcon } from "lucide-react";
 // ─── Branding ─────────────────────────────────────────────────────────────────
 
 export interface DashboardBranding {
-  /** Primary system name displayed in the header (e.g., "SHAKTI") */
+  /** Primary system name displayed in the header (e.g., "NIYANTRAN KENDRA") */
   systemName: string;
-  /** Subtitle shown beside the system name (e.g., "Operational Command Center") */
+  /** Subtitle shown beside the system name (e.g., "Runtime Integration & Operational Command Center") */
   subtitle: string;
+  /** Canonical BHIV application slug (e.g., "niyantran") */
+  appSlug?: string;
+  /** Canonical production application URL */
+  productionUrl?: string;
   /** Lucide icon component for the logo area */
   logoIcon?: LucideIcon;
-  /** Operator display name shown in the user badge */
+  /** Default display label shown when session overrides are not active */
   operatorLabel: string;
-  /** Role label shown below operator name */
+  /** Default role label shown below display name */
   roleLabel: string;
-  /** Initials for the avatar badge (e.g., "OP") */
+  /** Default initials for the avatar badge */
   operatorInitials: string;
 }
 

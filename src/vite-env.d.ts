@@ -15,6 +15,10 @@ interface ImportMetaEnv {
   readonly VITE_KESHAV_URL?: string;
   readonly VITE_SETU_URL?: string;
   readonly VITE_PRAVAH_URL?: string;
+  readonly VITE_MITRA_URL?: string;
+  readonly VITE_MITRA_LIVE_URL?: string;
+  readonly VITE_AUTH_SERVER_URL?: string;
+  readonly VITE_AUTH_UI_URL?: string;
 }
 
 interface ImportMeta {
